@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 )
 
 // 加载证书和私钥
@@ -13,7 +14,8 @@ func loadCertificate(crt, key string) tls.Certificate {
 	}
 	cert, err := tls.X509KeyPair([]byte(crt), []byte(key))
 	if err != nil {
-		panic(err)
+		fmt.Println("Error loading certificate: ", err)
+		return tls.Certificate{}
 	}
 	return cert
 }
@@ -29,7 +31,8 @@ func loadRootCAs(ca string) *x509.CertPool {
 	if ca != "" {
 		// 如果提供了额外的CA证书，则尝试将其添加到证书池中
 		if ok := systemPool.AppendCertsFromPEM([]byte(ca)); !ok {
-			panic("failed to parse root CA certificate")
+			fmt.Println("failed to parse root CA certificate")
+			return systemPool
 		}
 	}
 	return systemPool
