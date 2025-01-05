@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 )
 
 func main() {
@@ -86,6 +87,10 @@ func handleConnection(clientConn net.Conn) {
 	var serverConn net.Conn
 	var err error
 
+	dialer := net.Dialer{
+		Timeout: time.Second * time.Duration(CONFIG.Proxy.ConnectWaitTime), // 设置连接超时时间
+	}
+
 	// 根据SERVER_SSL_CONF.enable判断使用tls还是普通tcp, 建立对server的连接
 	if SERVER_SSL_CONF.Enable {
 		// 创建TLS配置
@@ -96,14 +101,14 @@ func handleConnection(clientConn net.Conn) {
 			MinVersion:   tls.VersionTLS13,
 		}
 		// 使用TLS连接到服务器
-		serverConn, err = tls.Dial("tcp", serverAddr, tlsConfig)
+		serverConn, err = tls.DialWithDialer(&dialer, "tcp", serverAddr, tlsConfig)
 		if err != nil {
 			fmt.Println("Failed to establish TLS connection to server: ", err)
 			return
 		}
 	} else {
 		// 使用普通TCP连接到服务器
-		serverConn, err = net.Dial("tcp", serverAddr)
+		serverConn, err = dialer.Dial("tcp", serverAddr)
 		if err != nil {
 			fmt.Println("Failed to establish TCP connection to server: ", err)
 			return
@@ -111,7 +116,8 @@ func handleConnection(clientConn net.Conn) {
 	}
 	defer serverConn.Close()
 
-	done := make(chan interface{})
+	done1 := make(chan interface{})
+	done2 := make(chan interface{})
 
 	// 客户端 -> 服务器
 	go func() {
@@ -119,7 +125,7 @@ func handleConnection(clientConn net.Conn) {
 		if err != nil {
 			fmt.Println("Error copying data from client to server: ", err)
 		}
-		close(done)
+		close(done1)
 	}()
 
 	// 服务器 -> 客户端
@@ -128,10 +134,10 @@ func handleConnection(clientConn net.Conn) {
 		if err != nil {
 			fmt.Println("Error copying data from server to client: ", err)
 		}
-		close(done)
+		close(done2)
 	}()
 
 	// 等待两个goroutine都完成
-	<-done
-	<-done
+	<-done1
+	<-done2
 }
