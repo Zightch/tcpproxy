@@ -14,7 +14,7 @@ func loadCertificate(crt, key string) tls.Certificate {
 	}
 	cert, err := tls.X509KeyPair([]byte(crt), []byte(key))
 	if err != nil {
-		fmt.Println("Error loading certificate: ", err)
+		fmt.Println("Error loading certificate:", err)
 		return tls.Certificate{}
 	}
 	return cert
@@ -31,7 +31,7 @@ func loadRootCAs(ca string) *x509.CertPool {
 	if ca != "" {
 		// 如果提供了额外的CA证书，则尝试将其添加到证书池中
 		if ok := systemPool.AppendCertsFromPEM([]byte(ca)); !ok {
-			fmt.Println("failed to parse root CA certificate")
+			fmt.Println("Failed to parse root CA certificate")
 			return systemPool
 		}
 	}

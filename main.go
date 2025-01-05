@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"strconv"
 	"time"
 )
 
@@ -21,20 +20,9 @@ func main() {
 		panic("Server address is empty")
 	}
 
-	ip, port := splitIPv6Port(CONFIG.Proxy.Local)
-	if port == 0 {
-		ip, port = splitIPv4Port(CONFIG.Proxy.Local)
-		if port == 0 {
-			if isAnyIPPort(CONFIG.Proxy.Local) {
-				ip = ""
-				num, _ := strconv.Atoi(CONFIG.Proxy.Local[1:])
-				port = uint16(num)
-			} else {
-				panic("Invalid local address: " + CONFIG.Proxy.Local)
-			}
-		}
+	if CONFIG.Proxy.Local == "" {
+		panic("Local address is empty")
 	}
-	addr := net.JoinHostPort(ip, fmt.Sprintf("%d", port))
 
 	var listener net.Listener
 	var err error
@@ -50,18 +38,18 @@ func main() {
 		}
 
 		// 使用TLS监听
-		listener, err = tls.Listen("tcp", addr, tlsConfig)
+		listener, err = tls.Listen("tcp", CONFIG.Proxy.Local, tlsConfig)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println("Listening on TLS: ", addr)
+		fmt.Println("Listening on TLS:", CONFIG.Proxy.Local)
 	} else {
 		// 使用普通TCP监听
-		listener, err = net.Listen("tcp", addr)
+		listener, err = net.Listen("tcp", CONFIG.Proxy.Local)
 		if err != nil {
-			fmt.Println("Error accepting connection: ", err)
+			fmt.Println("Error accepting connection:", err)
 		}
-		fmt.Println("Listening on TCP: ", addr)
+		fmt.Println("Listening on TCP:", CONFIG.Proxy.Local)
 	}
 
 	defer listener.Close()
@@ -69,7 +57,7 @@ func main() {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Println("Error accepting connection: ", err)
+			fmt.Println("Error accepting connection:", err)
 			continue
 		}
 		go handleConnection(conn) // 假设你有一个handleConnection函数来处理每个连接
@@ -103,14 +91,14 @@ func handleConnection(clientConn net.Conn) {
 		// 使用TLS连接到服务器
 		serverConn, err = tls.DialWithDialer(&dialer, "tcp", serverAddr, tlsConfig)
 		if err != nil {
-			fmt.Println("Failed to establish TLS connection to server: ", err)
+			fmt.Println("Failed to establish TLS connection to server:", err)
 			return
 		}
 	} else {
 		// 使用普通TCP连接到服务器
 		serverConn, err = dialer.Dial("tcp", serverAddr)
 		if err != nil {
-			fmt.Println("Failed to establish TCP connection to server: ", err)
+			fmt.Println("Failed to establish TCP connection to server:", err)
 			return
 		}
 	}
@@ -123,7 +111,7 @@ func handleConnection(clientConn net.Conn) {
 	go func() {
 		_, err := io.Copy(serverConn, clientConn)
 		if err != nil {
-			fmt.Println("Error copying data from client to server: ", err)
+			fmt.Println("Error copying data from client to server:", err)
 		}
 		close(done1)
 	}()
@@ -132,7 +120,7 @@ func handleConnection(clientConn net.Conn) {
 	go func() {
 		_, err := io.Copy(clientConn, serverConn)
 		if err != nil {
-			fmt.Println("Error copying data from server to client: ", err)
+			fmt.Println("Error copying data from server to client:", err)
 		}
 		close(done2)
 	}()
