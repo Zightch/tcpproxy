@@ -34,7 +34,7 @@ func main() {
 		tlsConfig := &tls.Config{
 			Certificates: []tls.Certificate{loadCertificate(LOCAL_SSL_CONF.crt, LOCAL_SSL_CONF.key)},
 			ClientAuth:   tls.VerifyClientCertIfGiven,
-			RootCAs:      loadRootCAs(LOCAL_SSL_CONF.ca),
+			ClientCAs:    loadRootCAs(LOCAL_SSL_CONF.ca),
 			MinVersion:   tls.VersionTLS13,
 		}
 
@@ -88,6 +88,7 @@ func handleConnection(clientConn net.Conn) {
 			ClientAuth:   tls.VerifyClientCertIfGiven,
 			RootCAs:      loadRootCAs(SERVER_SSL_CONF.ca),
 			MinVersion:   tls.VersionTLS13,
+			// InsecureSkipVerify: true,
 		}
 		// 使用TLS连接到服务器
 		serverConn, err = tls.DialWithDialer(&dialer, "tcp", serverAddr, tlsConfig)
