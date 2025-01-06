@@ -32,7 +32,6 @@ func loadRootCAs(ca string) *x509.CertPool {
 		// 如果提供了额外的CA证书，则尝试将其添加到证书池中
 		if ok := systemPool.AppendCertsFromPEM([]byte(ca)); !ok {
 			fmt.Println("Failed to parse root CA certificate")
-			return systemPool
 		}
 	}
 	return systemPool

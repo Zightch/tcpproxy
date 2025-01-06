@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -32,7 +33,7 @@ func main() {
 		// 创建TLS配置
 		tlsConfig := &tls.Config{
 			Certificates: []tls.Certificate{loadCertificate(LOCAL_SSL_CONF.crt, LOCAL_SSL_CONF.key)},
-			ClientAuth:   tls.RequireAndVerifyClientCert,
+			ClientAuth:   tls.VerifyClientCertIfGiven,
 			RootCAs:      loadRootCAs(LOCAL_SSL_CONF.ca),
 			MinVersion:   tls.VersionTLS13,
 		}
@@ -84,7 +85,7 @@ func handleConnection(clientConn net.Conn) {
 		// 创建TLS配置
 		tlsConfig := &tls.Config{
 			Certificates: []tls.Certificate{loadCertificate(SERVER_SSL_CONF.crt, SERVER_SSL_CONF.key)},
-			ClientAuth:   tls.RequireAndVerifyClientCert,
+			ClientAuth:   tls.VerifyClientCertIfGiven,
 			RootCAs:      loadRootCAs(SERVER_SSL_CONF.ca),
 			MinVersion:   tls.VersionTLS13,
 		}
@@ -104,28 +105,27 @@ func handleConnection(clientConn net.Conn) {
 	}
 	defer serverConn.Close()
 
-	done1 := make(chan interface{})
-	done2 := make(chan interface{})
+	var wg sync.WaitGroup
+	wg.Add(2)
 
 	// 客户端 -> 服务器
 	go func() {
+		defer wg.Done()
 		_, err := io.Copy(serverConn, clientConn)
 		if err != nil {
 			fmt.Println("Error copying data from client to server:", err)
 		}
-		close(done1)
 	}()
 
 	// 服务器 -> 客户端
 	go func() {
+		defer wg.Done()
 		_, err := io.Copy(clientConn, serverConn)
 		if err != nil {
 			fmt.Println("Error copying data from server to client:", err)
 		}
-		close(done2)
 	}()
 
 	// 等待两个goroutine都完成
-	<-done1
-	<-done2
+	wg.Wait()
 }
