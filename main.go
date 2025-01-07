@@ -30,16 +30,8 @@ func main() {
 
 	// 根据LOCAL_SSL_CONF.enable判断使用tls还是普通tcp
 	if LOCAL_SSL_CONF.Enable {
-		// 创建TLS配置
-		tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{loadCertificate(LOCAL_SSL_CONF.crt, LOCAL_SSL_CONF.key)},
-			ClientAuth:   tls.VerifyClientCertIfGiven,
-			ClientCAs:    loadRootCAs(LOCAL_SSL_CONF.ca),
-			MinVersion:   tls.VersionTLS13,
-		}
-
 		// 使用TLS监听
-		listener, err = tls.Listen("tcp", CONFIG.Proxy.Local, tlsConfig)
+		listener, err = tls.Listen("tcp", CONFIG.Proxy.Local, LOCAL_TLS_CONF)
 		if err != nil {
 			panic(err)
 		}
@@ -82,16 +74,8 @@ func handleConnection(clientConn net.Conn) {
 
 	// 根据SERVER_SSL_CONF.enable判断使用tls还是普通tcp, 建立对server的连接
 	if SERVER_SSL_CONF.Enable {
-		// 创建TLS配置
-		tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{loadCertificate(SERVER_SSL_CONF.crt, SERVER_SSL_CONF.key)},
-			ClientAuth:   tls.VerifyClientCertIfGiven,
-			RootCAs:      loadRootCAs(SERVER_SSL_CONF.ca),
-			MinVersion:   tls.VersionTLS13,
-			// InsecureSkipVerify: true,
-		}
 		// 使用TLS连接到服务器
-		serverConn, err = tls.DialWithDialer(&dialer, "tcp", serverAddr, tlsConfig)
+		serverConn, err = tls.DialWithDialer(&dialer, "tcp", serverAddr, SERVER_TLS_CONF)
 		if err != nil {
 			fmt.Println("Failed to establish TLS connection to server:", err)
 			return
@@ -111,20 +95,22 @@ func handleConnection(clientConn net.Conn) {
 
 	// 客户端 -> 服务器
 	go func() {
-		defer wg.Done()
 		_, err := io.Copy(serverConn, clientConn)
 		if err != nil {
 			fmt.Println("Error copying data from client to server:", err)
 		}
+		serverConn.Close()
+		wg.Done()
 	}()
 
 	// 服务器 -> 客户端
 	go func() {
-		defer wg.Done()
 		_, err := io.Copy(clientConn, serverConn)
 		if err != nil {
 			fmt.Println("Error copying data from server to client:", err)
 		}
+		serverConn.Close()
+		wg.Done()
 	}()
 
 	// 等待两个goroutine都完成
