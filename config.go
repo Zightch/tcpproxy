@@ -132,7 +132,7 @@ func config(configFilePath string) {
 }
 
 func sslConfig() {
-	{
+	if LOCAL_SSL_CONF.Enable {
 		if LOCAL_SSL_CONF.crt != "" && LOCAL_SSL_CONF.key != "" {
 			cert, err := tls.X509KeyPair([]byte(LOCAL_SSL_CONF.crt), []byte(LOCAL_SSL_CONF.key))
 			if err != nil {
@@ -140,12 +140,6 @@ func sslConfig() {
 				panic(str)
 			}
 			LOCAL_TLS_CONF.Certificates = []tls.Certificate{cert}
-		}
-		// 尝试加载系统默认的CA证书
-		systemPool, err := x509.SystemCertPool()
-		if err != nil || systemPool == nil {
-			// 如果无法加载系统证书池，则创建一个新的空证书池
-			systemPool = x509.NewCertPool()
 		}
 		if LOCAL_SSL_CONF.ca != "" {
 			block, _ := pem.Decode([]byte(LOCAL_SSL_CONF.ca))
@@ -157,12 +151,13 @@ func sslConfig() {
 				str := fmt.Sprintf("Error loading local certificate: %v", err)
 				panic(str)
 			}
+			systemPool := x509.NewCertPool()
 			systemPool.AddCert(crt)
+			LOCAL_TLS_CONF.ClientCAs = systemPool
 			LOCAL_TLS_CONF.ClientAuth = tls.RequireAndVerifyClientCert
 		}
-		LOCAL_TLS_CONF.ClientCAs = systemPool
 	}
-	{
+	if SERVER_SSL_CONF.Enable {
 		if SERVER_SSL_CONF.crt != "" && SERVER_SSL_CONF.key != "" {
 			cert, err := tls.X509KeyPair([]byte(SERVER_SSL_CONF.crt), []byte(SERVER_SSL_CONF.key))
 			if err != nil {
